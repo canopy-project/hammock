@@ -55,7 +55,16 @@ class ToC:
         out = """
 <script>
 function get_scroll_y() {
-    return window.pageYOffset || document.body.scrollTop || document.html.scrollTop;
+    if (window.pageYOffset !== undefined) {
+        return window.pageYOffset;
+    }
+    if (document.body !== undefined && document.body.scrollTop !== undefined) {
+        return document.body.scrollTop;
+    }
+    if (document.html !== undefined && document.html.scrollTop !== undefined) {
+        return document.html.scrollTop;
+    }
+    return 0;
 }
 function get_element_scroll_y(id) {
     return document.getElementById(id).offsetTop;
@@ -83,11 +92,11 @@ function update_scroll() {
 
         for elem in reversed(self._elems):
             out += """
-            else if (y + 96 > get_element_scroll_y('""" + self._id(elem) + """')) {
+            else if (y + 48 > get_element_scroll_y('""" + self._id(elem) + """')) {
                 document.getElementById('""" + self._toc_id(elem) + """').style.fontWeight = "bold";
                 document.getElementById('""" + self._toc_id(elem) + """').style.backgroundColor = "#d0d0d0";
                 var foo = document.getElementById('""" + self._id(elem) + """_section_contents');
-                if (foo != null) foo.style.borderLeft = '2px solid #c0c0c0';
+                if (foo != null) foo.style.borderLeft = '2px solid #d8d8d8';
             }
             """
 
@@ -102,7 +111,7 @@ function update_scroll() {
 
         for elem in reversed(self._chapter_elems):
             out += """
-            else if (y + 96 > get_element_scroll_y('""" + self._id(elem) + """')) {
+            else if (y + 48 > get_element_scroll_y('""" + self._id(elem) + """')) {
                 $(jq('""" + self._toc_id(elem) + """_sections')).show();
             }
             """
@@ -112,6 +121,7 @@ function update_scroll() {
 window.onload = function() {
     window.addEventListener("scroll", update_scroll);
 }
+$(document).ready(function() {update_scroll();});
 </script>
 """
         return out
@@ -253,8 +263,7 @@ def parse_chapter(toc, elem, multipage=False):
     else:
         return """
             <div class=hammock-chapter-outer>
-                <a class=hammock-a-name id=""" + file_namify(elem.attrib["title"]) + """ name=""" + file_namify(elem.attrib["title"]) + """></a>
-                <div class=hammock-chapter-title>
+                <a class=hammock-a-name id=""" + file_namify(elem.attrib["title"]) + """ name=""" + file_namify(elem.attrib["title"]) + """></a><div class=hammock-chapter-title>
                     """ + elem.attrib["title"] + """
                 </div>
                 <div class=hammock-chapter-contents>
