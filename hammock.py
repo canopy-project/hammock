@@ -32,7 +32,10 @@ class ToC:
     # The list is sorted by keyword length (longest first), so that "Update a
     # Device" will always be made a hyperlink before "Device", for example.
     autolinks = []
+
     _elems = []
+
+    _chapter_elems = []
 
     _html = ""
     _script = ""
@@ -58,6 +61,12 @@ function get_element_scroll_y(id) {
     return document.getElementById(id).offsetTop;
 }
 
+function jq( myid ) {
+     
+        return "#" + myid.replace( /(:|\.|\[|\]|,)/g, "\\\\$1" );
+         
+}
+
 function update_scroll() {
     var y = get_scroll_y();
 
@@ -65,6 +74,7 @@ function update_scroll() {
         for elem in self._elems:
             out += "document.getElementById('" + self._toc_id(elem) + "').style.fontWeight = '';";
             out += "document.getElementById('" + self._toc_id(elem) + "').style.backgroundColor = '';";
+            out += "var foo = document.getElementById('" + self._id(elem) + "_section_contents');  if (foo != null) foo.style.borderLeft = '2px solid #ffffff';";
 
         out += """
     if (0) {
@@ -73,9 +83,27 @@ function update_scroll() {
 
         for elem in reversed(self._elems):
             out += """
-            else if (y + 32 > get_element_scroll_y('""" + self._id(elem) + """')) {
+            else if (y + 96 > get_element_scroll_y('""" + self._id(elem) + """')) {
                 document.getElementById('""" + self._toc_id(elem) + """').style.fontWeight = "bold";
                 document.getElementById('""" + self._toc_id(elem) + """').style.backgroundColor = "#d0d0d0";
+                var foo = document.getElementById('""" + self._id(elem) + """_section_contents');
+                if (foo != null) foo.style.borderLeft = '2px solid #c0c0c0';
+            }
+            """
+
+        # Chapter folding
+        for elem in self._chapter_elems:
+            out += "$(jq('" + self._toc_id(elem) + "_sections')).hide();"
+
+        out += """
+    if (0) {
+    }
+    """
+
+        for elem in reversed(self._chapter_elems):
+            out += """
+            else if (y + 96 > get_element_scroll_y('""" + self._id(elem) + """')) {
+                $(jq('""" + self._toc_id(elem) + """_sections')).show();
             }
             """
 
@@ -106,15 +134,17 @@ window.onload = function() {
 
     def _toc_parse_element(self, elem):
         out = ""
+
         if elem.tag == "doc":
             toc_title = "Contents"
             if "toc_title" in elem.attrib:
                 toc_title = elem.attrib["toc_title"]
-            out += "<div class='hammock-toc-title'>" + toc_title + "</div>"
+            out += "<div class='hammock-toc-title'>" + toc_title + "</div><div>"
         if elem.tag == "chapter":
-            out += "<div id='" + self._toc_id(elem) + "' class='hammock-toc-chapter'><a href='" + self._href(elem) + "'>" + elem.attrib["title"] + "</a></div>"
+            out += "</div><div id='" + self._toc_id(elem) + "' class='hammock-toc-chapter'><a href='" + self._href(elem) + "'>" + elem.attrib["title"] + "</a></div>" + "<div id='" + self._toc_id(elem) + "_sections" + "' class='hammock-toc-sections'>"
             self.autolinks.append((elem.attrib["title"], self._href(elem)))
             self._elems.append(elem)
+            self._chapter_elems.append(elem)
             if "autolinks" in elem.attrib:
                 keywords = elem.attrib["autolinks"].split(",")
                 for keyword in keywords:
@@ -132,6 +162,9 @@ window.onload = function() {
         
         for child in elem:
             out += self._toc_parse_element(child)
+
+        if elem.tag == "doc":
+            out += "</div>"
 
         return out
         
@@ -166,6 +199,8 @@ window.onload = function() {
 #
 def file_namify(s):
     s = re.sub(r'\s', "_", s)
+    s = re.sub(r'\(', "", s)
+    s = re.sub(r'\)', "", s)
     s = s.lower()
     return s
 
@@ -177,7 +212,7 @@ def _gen_chapter_page(toc, elem):
 def fixup_text(text, toc):
     text = escape(text)
     text = toc.autolink(text)
-    return text;
+    return text
 
 def escape(text):
     # replace "<" with "&lt;"
@@ -229,9 +264,8 @@ def parse_chapter(toc, elem, multipage=False):
 
 def parse_section(toc, elem):
     return """
-        <div class=hammock-section-outer>
-            <a class=hammock-a-name id=""" + file_namify(elem.attrib["title"]) + """ name=""" + file_namify(elem.attrib["title"]) + """></a>
-            <div class=hammock-section-title>
+        <div class=hammock-section-outer id=""" + file_namify(elem.attrib["title"]) + """_section_contents>
+            <a class=hammock-a-name id=""" + file_namify(elem.attrib["title"]) + """ name=""" + file_namify(elem.attrib["title"]) + """></a><div class=hammock-section-title>
                 """ + elem.attrib["title"] + """
             </div>
             <div class=hammock-section-contents>
